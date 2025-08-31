@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Merger - Объединение PNG изображений</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .dropzone {
+            border: 2px dashed #ccc;
+            transition: all 0.3s;
+        }
+        .dropzone.active {
+            border-color: #4f46e5;
+            background-color: #f0f7ff;
+        }
+        .thumbnail {
+            transition: all 0.2s;
+        }
+        .thumbnail:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .thumbnail.dragging {
+            opacity: 0.4;
+        }
+        #mergedCanvas {
+            max-width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-indigo-700 mb-2">Image Merger</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">Загрузите несколько PNG изображений и объедините их в одно</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div class="flex flex-col md:flex-row gap-8">
+                <!-- Upload Section -->
+                <div class="flex-1">
+                    <div 
+                        id="dropzone" 
+                        class="dropzone rounded-lg p-8 text-center cursor-pointer mb-6"
+                    >
+                        <div class="flex flex-col items-center justify-center py-12">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-indigo-500 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Перетащите PNG изображения сюда</p>
+                            <p class="text-sm text-gray-500 mb-4">или</p>
+                            <label for="fileInput" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md cursor-pointer transition">
+                                Выберите файлы
+                            </label>
+                            <input 
+                                id="fileInput" 
+                                type="file" 
+                                accept="image/png" 
+                                multiple 
+                                class="hidden"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-lg text-gray-800 mb-3">Настройки объединения</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Расположение</label>
+                                <select id="layoutOption" class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="vertical">Вертикальное</option>
+                                    <option value="horizontal">Горизонтальное</option>
+                                    <option value="grid">Сетка</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Промежуток (px)</label>
+                                <input 
+                                    id="spacingInput" 
+                                    type="number" 
+                                    min="0" 
+                                    max="100" 
+                                    value="5" 
+                                    class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Цвет фона</label>
+                                <input 
+                                    id="bgColorInput" 
+                                    type="color" 
+                                    value="#ffffff" 
+                                    class="w-full h-10 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Колонки (для сетки)</label>
+                                <input 
+                                    id="gridColsInput" 
+                                    type="number" 
+                                    min="1" 
+                                    max="10" 
+                                    value="2" 
+                                    class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                            </div>
+                            <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="yandexClientIdInput" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Client ID приложения
+                                    </label>
+                                    <input 
+                                        id="yandexClientIdInput" 
+                                        type="text" 
+                                        placeholder="Ваш Client ID" 
+                                        class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    >
+                                </div>
+                                <div>
+                                    <label for="yandexTokenInput" class="block text-sm font-medium text-gray-700 mb-1">
+                                    OAuth-токен
+                                </label>
+                                <input 
+                                    id="yandexTokenInput" 
+                                    type="password" 
+                                    placeholder="Будет получен автоматически" 
+                                    autocomplete="current-password"
+                                    class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        id="mergeBtn" 
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-md font-medium transition flex items-center justify-center"
+                        disabled
+                    >
+                        <span id="mergeBtnText">Объединить изображения</span>
+                        <span id="mergeBtnSpinner" class="hidden ml-2"></span>
+                    </button>
+                    <button 
+                        id="yandexAuthBtn"
+                        class="w-full mt-3 bg-gray-700 hover:bg-gray-800 text-white py-2 px-4 rounded-md font-medium transition flex items-center justify-center"
+                    >
+                        <i class="fab fa-yandex mr-2"></i>
+                        <span>Авторизоваться и получить токен</span>
+                    </button>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="flex-1">
+                    <div class="border-b border-gray-200 pb-4 mb-4">
+                        <h3 class="font-semibold text-lg text-gray-800">Предпросмотр</h3>
+                    </div>
+
+                    <div id="previewContainer" class="space-y-4">
+                        <div id="emptyState" class="text-center py-12">
+                            <i class="fas fa-images text-4xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">Загрузите изображения для предпросмотра</p>
+                        </div>
+
+                        <div id="thumbnailsContainer" class="hidden grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" class="bg-white rounded-xl shadow-md p-6 hidden">
+            <div class="border-b border-gray-200 pb-4 mb-6">
+                <h3 class="font-semibold text-lg text-gray-800">Результат объединения</h3>
+            </div>
+
+            <div class="flex flex-col items-center">
+                <canvas id="mergedCanvas" class="mb-6"></canvas>
+                
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button 
+                        id="downloadBtn" 
+                        class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium transition flex items-center"
+                    >
+                        <i class="fas fa-download mr-2"></i> <span>Скачать PNG</span>
+                    </button>
+                    <button 
+                        id="yandexUploadBtn" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition flex items-center"
+                    >
+                        <i class="fab fa-yandex mr-2"></i> 
+                        <span class="yandex-btn-text">Загрузить на Диск</span>
+                        <span class="yandex-btn-spinner hidden ml-2"></span>
+                    </button>
+                    <button 
+                        id="resetBtn" 
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-md font-medium transition flex items-center"
+                    >
+                        <i class="fas fa-redo mr-2"></i> Начать заново
+                    </button>
+                </div>
+
+                <div id="yandexResult" class="hidden mt-6 w-full max-w-lg text-center">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Публичная ссылка:</label>
+                    <div class="flex items-center">
+                        <input id="yandexLinkInput" type="text" readonly class="w-full border-gray-300 rounded-l-md shadow-sm bg-gray-100 cursor-pointer">
+                        <button id="copyLinkBtn" title="Копировать ссылку" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-r-md font-medium transition">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+            const emptyState = document.getElementById('emptyState');
+            const mergeBtn = document.getElementById('mergeBtn');
+            const mergeBtnText = document.getElementById('mergeBtnText');
+            const mergeBtnSpinner = document.getElementById('mergeBtnSpinner');
+            const resultSection = document.getElementById('resultSection');
+            const mergedCanvas = document.getElementById('mergedCanvas');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            
+            // Yandex Disk elements
+            const yandexClientIdInput = document.getElementById('yandexClientIdInput');
+            const yandexAuthBtn = document.getElementById('yandexAuthBtn');
+            const yandexTokenInput = document.getElementById('yandexTokenInput');
+            const yandexUploadBtn = document.getElementById('yandexUploadBtn');
+            const yandexResult = document.getElementById('yandexResult');
+            const yandexLinkInput = document.getElementById('yandexLinkInput');
+            const copyLinkBtn = document.getElementById('copyLinkBtn');
+            
+            // Settings
+            const layoutOption = document.getElementById('layoutOption');
+            const spacingInput = document.getElementById('spacingInput');
+            const bgColorInput = document.getElementById('bgColorInput');
+            const gridColsInput = document.getElementById('gridColsInput');
+            
+            // Variables
+            let images = [];
+            let ctx = mergedCanvas.getContext('2d');
+            
+            // --- On Page Load ---
+            handleOAuthRedirect();
+            loadFromLocalStorage();
+            // --------------------
+
+            // Event Listeners
+            dropzone.addEventListener('click', (e) => {
+                // Эта логика предотвращает проблему "двойного клика".
+                // Когда нажимается кнопка <label>, браузер автоматически вызывает инпут.
+                // Мы хотим программно вызывать клик, только если пользователь нажимает на общую область dropzone,
+                // а не на саму метку, чтобы избежать конфликта, отменяющего диалог выбора файла.
+                if (e.target.htmlFor !== 'fileInput') {
+                    fileInput.click();
+                }
+            });
+            
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('active');
+            });
+            
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('active');
+            });
+            
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('active');
+                
+                if (e.dataTransfer.files.length) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+            
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) {
+                    handleFiles(fileInput.files);
+                }
+            });
+            
+            mergeBtn.addEventListener('click', mergeImages);
+            downloadBtn.addEventListener('click', downloadMergedImage);
+            resetBtn.addEventListener('click', resetApp);
+            yandexAuthBtn.addEventListener('click', redirectToYandexAuth);
+            yandexUploadBtn.addEventListener('click', uploadToYandexDisk);
+            copyLinkBtn.addEventListener('click', copyYandexLink);
+
+            thumbnailsContainer.addEventListener('dragstart', e => {
+                if (e.target.classList.contains('thumbnail')) {
+                    e.target.classList.add('dragging');
+                }
+            });
+
+            thumbnailsContainer.addEventListener('dragover', e => {
+                e.preventDefault();
+                const draggingElement = document.querySelector('.dragging');
+                if (!draggingElement) return;
+
+                const afterElement = getDragAfterElement(thumbnailsContainer, e.clientY);
+                thumbnailsContainer.insertBefore(draggingElement, afterElement);
+            });
+
+            thumbnailsContainer.addEventListener('dragend', e => {
+                if (e.target.classList.contains('thumbnail')) {
+                    e.target.classList.remove('dragging');
+
+                    // Получаем новый порядок ID из DOM
+                    const newIdOrder = Array.from(thumbnailsContainer.querySelectorAll('.thumbnail'))
+                                            .map(thumb => thumb.dataset.id);
+
+                    // Безопасно сортируем существующий массив, не создавая новый.
+                    // Это предотвращает потерю данных из-за возможных гонок состояний.
+                    images.sort((a, b) => {
+                        return newIdOrder.indexOf(a.id) - newIdOrder.indexOf(b.id);
+                    });
+                }
+            });
+            
+            // Functions
+            function handleOAuthRedirect() {
+                // Проверяем, есть ли токен в URL после редиректа от Яндекса
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
+                const accessToken = params.get('access_token');
+
+                if (accessToken) {
+                    yandexTokenInput.value = accessToken;
+                    localStorage.setItem('yandexOAuthToken', accessToken);
+
+                    // Очищаем хэш из URL для безопасности и чистоты
+                    history.pushState("", document.title, window.location.pathname + window.location.search);
+                }
+            }
+
+            function loadFromLocalStorage() {
+                const savedToken = localStorage.getItem('yandexOAuthToken');
+                const savedClientId = localStorage.getItem('yandexClientId');
+                if (savedToken) {
+                    yandexTokenInput.value = savedToken;
+                }
+                if (savedClientId) {
+                    yandexClientIdInput.value = savedClientId;
+                }
+            }
+
+            function redirectToYandexAuth() {
+                const clientId = yandexClientIdInput.value.trim();
+                if (!clientId) {
+                    alert('Пожалуйста, введите ваш Client ID, полученный в Яндекс.OAuth.');
+                    yandexClientIdInput.focus();
+                    return;
+                }
+                localStorage.setItem('yandexClientId', clientId);
+                window.location.href = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${clientId}`;
+            }
+
+            function handleFiles(files) {
+                // Возвращаем проверку на дубликаты.
+                // Фильтруем входящие файлы: оставляем только уникальные PNG, которых еще нет в списке.
+                const newUniquePngFiles = Array.from(files).filter(file => {
+                    // Проверяем, что это PNG
+                    if (file.type !== 'image/png') {
+                        return false;
+                    }
+                    
+                    // Проверяем на дубликат по имени, размеру и дате изменения.
+                    const isDuplicate = images.some(existingImage => 
+                        existingImage.file.name === file.name &&
+                        existingImage.file.size === file.size &&
+                        existingImage.file.lastModified === file.lastModified
+                    );
+                    
+                    return !isDuplicate;
+                });
+
+                if (newUniquePngFiles.length === 0) {
+                    // Если не было выбрано новых уникальных PNG файлов, выходим.
+                    // Это также сработает, если пользователь выбрал только дубликаты.
+                    fileInput.value = ''; // Очищаем инпут в любом случае
+                    return;
+                }
+                
+                let filesToLoad = newUniquePngFiles.length;
+                
+                newUniquePngFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        // ID сделан более уникальным, чтобы избежать конфликтов при добавлении одинаковых файлов
+                        const uniqueId = `${Date.now()}-${index}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+                        img.onload = function() {
+                            images.push({ id: uniqueId, file: file, element: img, width: img.width, height: img.height });
+                            createThumbnail(img, file.name, uniqueId);
+                            
+                            filesToLoad--;
+                            if (filesToLoad === 0) {
+                                updateUI();
+                            }
+                        };
+                        img.src = e.target.result;
+                    };
+                    
+                    reader.readAsDataURL(file);
+                });
+
+                // Очищаем значение инпута, чтобы можно было повторно выбрать те же файлы
+                fileInput.value = '';
+            }
+            
+            function createThumbnail(img, filename, uniqueId) {
+                emptyState.classList.add('hidden');
+                thumbnailsContainer.classList.remove('hidden');
+                
+                const thumbnail = document.createElement('div');
+                thumbnail.className = 'thumbnail group relative bg-white p-2 rounded-md border border-gray-200 cursor-move';
+                thumbnail.draggable = true;
+                thumbnail.dataset.id = uniqueId;
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 120;
+                canvas.height = 120;
+                const thumbCtx = canvas.getContext('2d');
+                
+                // Calculate dimensions to maintain aspect ratio
+                const ratio = Math.min(
+                    canvas.width / img.width,
+                    canvas.height / img.height
+                );
+                const width = img.width * ratio;
+                const height = img.height * ratio;
+                const x = (canvas.width - width) / 2;
+                const y = (canvas.height - height) / 2;
+                
+                thumbCtx.fillStyle = '#ffffff';
+                thumbCtx.fillRect(0, 0, canvas.width, canvas.height);
+                thumbCtx.drawImage(img, x, y, width, height);
+                
+                const name = document.createElement('p');
+                name.className = 'text-xs text-gray-600 truncate mt-2';
+                name.textContent = filename;
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10';
+                deleteBtn.innerHTML = '<i class="fas fa-times pointer-events-none"></i>';
+                deleteBtn.title = 'Удалить';
+                
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    const indexToDelete = images.findIndex(img => img.id === uniqueId);
+                    if (indexToDelete > -1) {
+                        images.splice(indexToDelete, 1);
+                    }
+
+                    thumbnail.remove();
+
+                    if (images.length === 0) {
+                        emptyState.classList.remove('hidden');
+                        thumbnailsContainer.classList.add('hidden');
+                    }
+                    
+                    updateUI();
+                });
+                
+                thumbnail.appendChild(canvas);
+                thumbnail.appendChild(name);
+                thumbnail.appendChild(deleteBtn);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+            
+            function updateUI() {
+                if (images.length > 0) {
+                    mergeBtn.disabled = false;
+                } else {
+                    mergeBtn.disabled = true;
+                }
+            }
+            
+            function mergeImages() {
+                if (images.length === 0) return;
+                
+                mergeBtnText.textContent = 'Объединение...';
+                mergeBtnSpinner.classList.remove('hidden');
+                mergeBtn.disabled = true;
+                
+                // Use setTimeout to allow UI to update before heavy processing
+                setTimeout(() => {
+                    const layout = layoutOption.value;
+                    const spacing = parseInt(spacingInput.value);
+                    const bgColor = bgColorInput.value;
+                    
+                    let canvasWidth, canvasHeight;
+                    
+                    if (layout === 'vertical') {
+                        canvasWidth = Math.max(...images.map(img => img.width));
+                        canvasHeight = images.reduce((sum, img) => sum + img.height, 0) + 
+                                      spacing * (images.length - 1);
+                    } 
+                    else if (layout === 'horizontal') {
+                        canvasWidth = images.reduce((sum, img) => sum + img.width, 0) + 
+                                     spacing * (images.length - 1);
+                        canvasHeight = Math.max(...images.map(img => img.height));
+                    }
+                    else if (layout === 'grid') {
+                        const cols = parseInt(gridColsInput.value);
+                        const rows = Math.ceil(images.length / cols);
+                        
+                        // Calculate max width and height for each column and row
+                        const colWidths = [];
+                        const rowHeights = [];
+                        
+                        for (let i = 0; i < images.length; i++) {
+                            const col = i % cols;
+                            const row = Math.floor(i / cols);
+                            
+                            colWidths[col] = Math.max(colWidths[col] || 0, images[i].width);
+                            rowHeights[row] = Math.max(rowHeights[row] || 0, images[i].height);
+                        }
+                        
+                        canvasWidth = colWidths.reduce((sum, width) => sum + width, 0) + 
+                                     spacing * (cols - 1);
+                        canvasHeight = rowHeights.reduce((sum, height) => sum + height, 0) + 
+                                      spacing * (rows - 1);
+                    }
+                    
+                    // Set canvas dimensions
+                    mergedCanvas.width = canvasWidth;
+                    mergedCanvas.height = canvasHeight;
+                    
+                    // Fill background
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                    
+                    // Draw images
+                    let x = 0, y = 0;
+                    
+                    if (layout === 'vertical') {
+                        x = 0;
+                        y = 0;
+                        
+                        images.forEach(img => {
+                            const xPos = (canvasWidth - img.width) / 2;
+                            ctx.drawImage(img.element, xPos, y, img.width, img.height);
+                            y += img.height + spacing;
+                        });
+                    }
+                    else if (layout === 'horizontal') {
+                        x = 0;
+                        y = 0;
+                        
+                        images.forEach(img => {
+                            const yPos = (canvasHeight - img.height) / 2;
+                            ctx.drawImage(img.element, x, yPos, img.width, img.height);
+                            x += img.width + spacing;
+                        });
+                    }
+                    else if (layout === 'grid') {
+                        const cols = parseInt(gridColsInput.value);
+                        const colWidths = [];
+                        const rowHeights = [];
+                        
+                        // Calculate max width and height for each column and row
+                        for (let i = 0; i < images.length; i++) {
+                            const col = i % cols;
+                            const row = Math.floor(i / cols);
+                            
+                            colWidths[col] = Math.max(colWidths[col] || 0, images[i].width);
+                            rowHeights[row] = Math.max(rowHeights[row] || 0, images[i].height);
+                        }
+                        
+                        // Calculate x positions for each column
+                        const colXPositions = [0];
+                        for (let i = 1; i < cols; i++) {
+                            colXPositions[i] = colXPositions[i-1] + colWidths[i-1] + spacing;
+                        }
+                        
+                        // Calculate y positions for each row
+                        const rowYPositions = [0];
+                        for (let i = 1; i < rowHeights.length; i++) {
+                            rowYPositions[i] = rowYPositions[i-1] + rowHeights[i-1] + spacing;
+                        }
+                        
+                        // Draw images in grid
+                        images.forEach((img, i) => {
+                            const col = i % cols;
+                            const row = Math.floor(i / cols);
+                            
+                            const xPos = colXPositions[col] + (colWidths[col] - img.width) / 2;
+                            const yPos = rowYPositions[row] + (rowHeights[row] - img.height) / 2;
+                            
+                            ctx.drawImage(img.element, xPos, yPos, img.width, img.height);
+                        });
+                    }
+                    
+                    // Show result
+                    resultSection.classList.remove('hidden');
+                    
+                    // Scroll to result
+                    setTimeout(() => {
+                        resultSection.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                    
+                    // Reset button state
+                    mergeBtnText.textContent = 'Объединить изображения';
+                    mergeBtnSpinner.classList.add('hidden');
+                    mergeBtn.disabled = false;
+                }, 100);
+            }
+            
+            function downloadMergedImage() {
+                const link = document.createElement('a');
+                link.download = 'merged-image.png';
+                link.href = mergedCanvas.toDataURL('image/png');
+                link.click();
+            }
+            
+            async function uploadToYandexDisk() {
+                const token = yandexTokenInput.value.trim();
+                if (!token) {
+                    alert('Пожалуйста, введите ваш Яндекс.Диск OAuth-токен.');
+                    yandexTokenInput.focus();
+                    return;
+                }
+
+                const uploadBtnText = yandexUploadBtn.querySelector('.yandex-btn-text');
+                const uploadBtnSpinner = yandexUploadBtn.querySelector('.yandex-btn-spinner');
+
+                // --- Set loading state ---
+                yandexUploadBtn.disabled = true;
+                uploadBtnText.textContent = 'Загрузка...';
+                uploadBtnSpinner.innerHTML = '<div class="loading-spinner"></div>';
+                uploadBtnSpinner.classList.remove('hidden');
+                yandexResult.classList.add('hidden');
+
+                try {
+                    const FOLDER_PATH = 'Приложения/ImageMerger';
+                    const fileName = `merged-image-${Date.now()}.png`;
+                    const filePath = `${FOLDER_PATH}/${fileName}`;
+
+                    // Get image data from canvas as a Blob
+                    const blob = await new Promise(resolve => mergedCanvas.toBlob(resolve, 'image/png'));
+
+                    // --- Step 1: Get upload URL ---
+                    const uploadUrlResponse = await fetch(`https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(filePath)}&overwrite=false`, {
+                        method: 'GET',
+                        headers: { 'Authorization': `OAuth ${token}` }
+                    });
+
+                    if (uploadUrlResponse.status === 401) {
+                        throw new Error('Ошибка авторизации. Проверьте ваш OAuth-токен.');
+                    }
+                    // If folder doesn't exist, Yandex returns 404. We need to create it.
+                    if (uploadUrlResponse.status === 404) {
+                        await fetch(`https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(FOLDER_PATH)}`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `OAuth ${token}` }
+                        });
+                        // Retry getting the upload URL
+                        return await uploadToYandexDisk();
+                    }
+                    if (!uploadUrlResponse.ok) {
+                        const errorData = await uploadUrlResponse.json();
+                        throw new Error(`Ошибка получения URL для загрузки: ${errorData.message}`);
+                    }
+
+                    const uploadData = await uploadUrlResponse.json();
+
+                    // --- Step 2: Upload the file ---
+                    const uploadResponse = await fetch(uploadData.href, {
+                        method: 'PUT',
+                        body: blob
+                    });
+
+                    if (!uploadResponse.ok) {
+                        throw new Error('Не удалось загрузить файл на сервер Яндекса.');
+                    }
+
+                    // --- Step 3: Publish the file to get a public link ---
+                    const publishResponse = await fetch(`https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(filePath)}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `OAuth ${token}` }
+                    });
+
+                    if (!publishResponse.ok) {
+                        const errorData = await publishResponse.json();
+                        throw new Error(`Ошибка публикации файла: ${errorData.message}`);
+                    }
+
+                    // --- Step 4: Get file metadata which includes the public URL ---
+                    const metaResponse = await fetch(`https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(filePath)}&fields=public_url`, {
+                        method: 'GET',
+                        headers: { 'Authorization': `OAuth ${token}` }
+                    });
+                    
+                    if (!metaResponse.ok) throw new Error('Не удалось получить метаданные файла после публикации.');
+
+                    const metaData = await metaResponse.json();
+                    if (!metaData.public_url) throw new Error('Яндекс.Диск не вернул публичную ссылку.');
+
+                    // --- Success: Display the link ---
+                    yandexLinkInput.value = metaData.public_url;
+                    yandexResult.classList.remove('hidden');
+
+                } catch (error) {
+                    alert(`Произошла ошибка: ${error.message}`);
+                } finally {
+                    // --- Reset button state ---
+                    yandexUploadBtn.disabled = false;
+                    uploadBtnText.textContent = 'Загрузить на Диск';
+                    uploadBtnSpinner.classList.add('hidden');
+                }
+            }
+
+            function copyYandexLink() {
+                const link = yandexLinkInput.value;
+                if (!link || !navigator.clipboard) return;
+
+                navigator.clipboard.writeText(link).then(() => {
+                    const originalIcon = copyLinkBtn.innerHTML;
+                    copyLinkBtn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => { copyLinkBtn.innerHTML = originalIcon; }, 2000);
+                }).catch(err => { alert('Не удалось скопировать ссылку.'); });
+            }
+
+            function resetApp() {
+                // Reset variables
+                images = [];
+                
+                // Reset UI
+                thumbnailsContainer.innerHTML = '';
+                thumbnailsContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                mergeBtn.disabled = true;
+                resultSection.classList.add('hidden');
+                yandexResult.classList.add('hidden');
+                fileInput.value = '';
+                // Токен и Client ID не сбрасываются для удобства
+            }
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.thumbnail:not(.dragging)')];
+
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+        });
+    </script>
+</body>
+</html>
