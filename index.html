@@ -276,7 +276,6 @@
             const resetBtn = document.getElementById('resetBtn');
             
             // Yandex Disk elements
-            const yandexClientIdInput = document.getElementById('yandexClientIdInput');
             const yandexAuthBtn = document.getElementById('yandexAuthBtn');
             const yandexLogoutBtn = document.getElementById('yandexLogoutBtn');
             const yandexTokenInput = document.getElementById('yandexTokenInput');
@@ -406,24 +405,15 @@
 
             function loadFromLocalStorage() {
                 const savedToken = localStorage.getItem('yandexOAuthToken');
-                const savedClientId = localStorage.getItem('yandexClientId');
                 if (savedToken) {
                     yandexTokenInput.value = savedToken;
-                }
-                if (savedClientId) {
-                    yandexClientIdInput.value = savedClientId;
                 }
                 updateAuthUI();
             }
 
             function redirectToYandexAuth() {
-                const clientId = yandexClientIdInput.value.trim();
-                if (!clientId) {
-                    alert('Пожалуйста, введите ваш Client ID, полученный в Яндекс.OAuth.');
-                    yandexClientIdInput.focus();
-                    return;
-                }
-                localStorage.setItem('yandexClientId', clientId);
+                // Вставьте ваш Client ID сюда
+                const clientId = 'ВАШ_CLIENT_ID_СЮДА'; 
                 window.location.href = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${clientId}`;
             }
 
