@@ -791,29 +791,33 @@
                         logout();
                         throw new Error('Ошибка авторизации. Ваш токен недействителен или устарел. Он был удален. Пожалуйста, авторизуйтесь заново.');
                     }
-                    // Если путь не найден (ошибка 404), значит, папки не существует.
-                    if (uploadUrlResponse.status === 404) {
-                        // API Яндекса требует, чтобы родительские папки уже существовали.
-                        // Мы создадим их последовательно.
-                        const parts = FOLDER_PATH.split('/');
-                        let currentPath = '';
-                        for (const part of parts) {
-                            currentPath = currentPath ? `${currentPath}/${part}` : part;
-                            const createFolderResponse = await fetch(`https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(currentPath)}`, {
-                                method: 'PUT',
-                                headers: { 'Authorization': `OAuth ${token}` }
-                            });
-                            // Коды 201 (Created) и 409 (Conflict/Already exists) нас устраивают.
-                            if (!createFolderResponse.ok && createFolderResponse.status !== 409) {
-                                const errorData = await createFolderResponse.json();
-                                throw new Error(`Не удалось создать папку "${currentPath}": ${errorData.message}`);
-                            }
-                        }
-                        // После создания папок, повторяем всю операцию загрузки.
-                        return await uploadToYandexDisk();
-                    } else if (!uploadUrlResponse.ok) {
+
+                    // Если запрос не успешный, анализируем ошибку
+                    if (!uploadUrlResponse.ok) {
                         const errorData = await uploadUrlResponse.json();
-                        throw new Error(`Ошибка получения URL для загрузки: ${errorData.message}`);
+                        // API Яндекса возвращает ошибку 409, если родительской папки не существует.
+                        if (uploadUrlResponse.status === 409 && errorData.message && errorData.message.includes('Указанного пути')) {
+                            // Это наш случай: папки не существует. Создаем ее.
+                            const parts = FOLDER_PATH.split('/');
+                            let currentPath = '';
+                            for (const part of parts) {
+                                currentPath = currentPath ? `${currentPath}/${part}` : part;
+                                const createFolderResponse = await fetch(`https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(currentPath)}`, {
+                                    method: 'PUT',
+                                    headers: { 'Authorization': `OAuth ${token}` }
+                                });
+                                // Коды 201 (Created) и 409 (Conflict/Already exists) нас устраивают.
+                                if (!createFolderResponse.ok && createFolderResponse.status !== 409) {
+                                    const createErrorData = await createFolderResponse.json();
+                                    throw new Error(`Не удалось создать папку "${currentPath}": ${createErrorData.message}`);
+                                }
+                            }
+                            // После создания папок, повторяем всю операцию загрузки.
+                            return await uploadToYandexDisk();
+                        } else {
+                            // Для всех других ошибок просто выводим сообщение.
+                            throw new Error(`Ошибка получения URL для загрузки: ${errorData.message}`);
+                        }
                     }
 
                     const uploadData = await uploadUrlResponse.json();
