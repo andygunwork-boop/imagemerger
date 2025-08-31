@@ -153,13 +153,22 @@
                         <span id="mergeBtnText">Объединить изображения</span>
                         <span id="mergeBtnSpinner" class="hidden ml-2"></span>
                     </button>
-                    <button 
-                        id="yandexAuthBtn"
-                        class="w-full mt-3 bg-gray-700 hover:bg-gray-800 text-white py-2 px-4 rounded-md font-medium transition flex items-center justify-center"
-                    >
-                        <i class="fab fa-yandex mr-2"></i>
-                        <span>Авторизоваться и получить токен</span>
-                    </button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                        <button 
+                            id="yandexAuthBtn"
+                            class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 px-4 rounded-md font-medium transition flex items-center justify-center"
+                        >
+                            <i class="fab fa-yandex mr-2"></i>
+                            <span>Авторизоваться</span>
+                        </button>
+                        <button 
+                            id="yandexLogoutBtn"
+                            class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium transition flex items-center justify-center hidden"
+                        >
+                            <i class="fas fa-sign-out-alt mr-2"></i>
+                            <span>Выйти</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Preview Section -->
@@ -243,6 +252,7 @@
             // Yandex Disk elements
             const yandexClientIdInput = document.getElementById('yandexClientIdInput');
             const yandexAuthBtn = document.getElementById('yandexAuthBtn');
+            const yandexLogoutBtn = document.getElementById('yandexLogoutBtn');
             const yandexTokenInput = document.getElementById('yandexTokenInput');
             const yandexUploadBtn = document.getElementById('yandexUploadBtn');
             const yandexResult = document.getElementById('yandexResult');
@@ -302,6 +312,7 @@
             mergeBtn.addEventListener('click', mergeImages);
             downloadBtn.addEventListener('click', downloadMergedImage);
             resetBtn.addEventListener('click', resetApp);
+            yandexLogoutBtn.addEventListener('click', logout);
             yandexAuthBtn.addEventListener('click', redirectToYandexAuth);
             yandexUploadBtn.addEventListener('click', uploadToYandexDisk);
             copyLinkBtn.addEventListener('click', copyYandexLink);
@@ -350,6 +361,7 @@
 
                     // Очищаем хэш из URL для безопасности и чистоты
                     history.pushState("", document.title, window.location.pathname + window.location.search);
+                    updateAuthUI();
                 }
             }
 
@@ -362,6 +374,7 @@
                 if (savedClientId) {
                     yandexClientIdInput.value = savedClientId;
                 }
+                updateAuthUI();
             }
 
             function redirectToYandexAuth() {
@@ -373,6 +386,24 @@
                 }
                 localStorage.setItem('yandexClientId', clientId);
                 window.location.href = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${clientId}`;
+            }
+
+            function logout() {
+                localStorage.removeItem('yandexOAuthToken');
+                yandexTokenInput.value = '';
+                updateAuthUI();
+                alert('Вы вышли из системы. Токен был удален.');
+            }
+
+            function updateAuthUI() {
+                const hasToken = yandexTokenInput.value.trim() !== '';
+                if (hasToken) {
+                    yandexAuthBtn.classList.add('hidden');
+                    yandexLogoutBtn.classList.remove('hidden');
+                } else {
+                    yandexAuthBtn.classList.remove('hidden');
+                    yandexLogoutBtn.classList.add('hidden');
+                }
             }
 
             function handleFiles(files) {
@@ -669,7 +700,8 @@
                     });
 
                     if (uploadUrlResponse.status === 401) {
-                        throw new Error('Ошибка авторизации. Проверьте ваш OAuth-токен.');
+                        logout();
+                        throw new Error('Ошибка авторизации. Ваш токен недействителен или устарел. Он был удален. Пожалуйста, авторизуйтесь заново.');
                     }
                     // If folder doesn't exist, Yandex returns 404. We need to create it.
                     if (uploadUrlResponse.status === 404) {
