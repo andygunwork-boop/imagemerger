@@ -763,7 +763,7 @@
                 yandexResult.classList.add('hidden');
 
                 try {
-                    const FOLDER_PATH = 'Приложения/ImageMerger';
+                    const FOLDER_PATH = 'imagemerger';
                     const baseFileName = (fileNameInput.value.trim() || 'merged-image').replace(/[^a-zA-Z0-9_-]/g, '');
                     const fileName = `${baseFileName}-${Date.now()}.png`;
                     const filePath = `${FOLDER_PATH}/${fileName}`;
